@@ -77,7 +77,7 @@ logger.debug("This is a debug log")
 logger.critical("This is a critical log")
 ```
 
-## Installing Grafana
+## Install Grafana
 
 To install Grafana, several options are available to you, an installation bare-metal directly on the OS, via Docker or via a Docker compose file.
 
@@ -160,7 +160,7 @@ backend grafanamysite
 ```       
 ---
 
-## Installing Loki and Promtail
+## Install Loki and Promtail
 
 Loki is an open source log management system designed to collect, store, and query logs efficiently and scalably.
 
@@ -218,6 +218,11 @@ Go to your Grafana server page. In the menu access the datasources page, click o
 ![image](https://github.com/JosueGauthier/grafana-borgia/assets/20337589/80c3f7f4-b3f7-4a57-886f-593435fdf871)
 
 You can now access the Explore page and make queries on your logs:
+
+
+![image](https://github.com/JosueGauthier/grafana-borgia/assets/20337589/92b1dee6-9c63-44b3-b314-c77d57342871)
+
+
 Here are some simple queries:
 
 This request allows you to display logs in json format
@@ -240,16 +245,17 @@ Then go to a field or func_name = myfunc click on the icon + this will automatic
 
 ![image](https://github.com/JosueGauthier/grafana-borgia/assets/20337589/a4e995fe-f5de-449b-a68c-a54f6faea78b)
 
+---
 
+# Prometheus install 
 
+Like Loki and Promtail, it is possible to install a Prometheus instance in order to monitor the Django application with metrics such as the number of requests per second, response time, latency, etc.
 
-Installation de Prometheus. 
+## Install django-prometheus package 
 
-De même que Loki et Promtail il est possible d'installer une instance Prometheus afin de surveiller l'application Django avec des metrics comme par exemple le nombre de requête par seconde, le temps de réponse, la latence...
+When installing the `requirements.py` file the django-prometheus package was installed [link](https://github.com/korfuri/django-prometheus). To use it, go to the `settings.py` file of your django application.
 
-Lors de l'installation du fichier requirements.py le package django-prometheus a été installé ( https://github.com/korfuri/django-prometheus ). Pour l'utiliser rendez vous dans le fichier settings.py de votre application django. 
-
-et modifier les lignes suivantes : 
+and modify the following lines:
 
 ```py
 
@@ -269,7 +275,7 @@ MIDDLEWARE = [
 
 ```
 
-dans le fichier urls.py : 
+in the urls.py file:
 
 ```py
 urlpatterns = [
@@ -277,10 +283,9 @@ urlpatterns = [
     path('', include('django_prometheus.urls')),
 ]
 ```
+It is also possible to monitor your database. However in my case I get an error.
 
-Il est egalement possible de monitorer votre base de données. Cependant dans mon cas j'obtiens une erreur. 
-
-> Lien vers l'erreur Github : https://github.com/korfuri/django-prometheus/issues/414
+> Link to Github error: [link](https://github.com/korfuri/django-prometheus/issues/414)
 
 ```py
 
@@ -292,18 +297,19 @@ DATABASES = {
 }
 
 ```
+Once your django application is correctly configured you can restart your server and go to the url http://your-django-app.com/metrics If everything went correctly you should then observe a list of metrics.
 
-Une votre application django correctement configurée vous pouvez relancer votre serveur et vous rendre à l'url http://your-django-app.com/metrics Si tout s'est passée correctement vous devriez alors observer une liste de metrics. 
+## Prometheus install 
 
-Installation de Prometheus. 
+Prometheus can be installed in different ways, a bare-metal installation or via a Docker container or other.
 
-Prometheus peut etre installer de différentes manières, une installation bare-metal ou via un conteneur Docker ou autre.
+If you are not familiar with Docker, a bare-metal installation is preferred, otherwise install it via Docker: 
 
-Si vous ne maitriser pas bien Docker une installation bare-metal est à privilégier sinon pour l'installer via docker : docker run -p 9090:9090 prom/prometheus. 
+`docker run -p 9090:9090 prom/prometheus`
 
+Example of possible bare-metal configuration is as follows.
 
-Un configuration possible en bare-metal est la suivante. 
-
+```cfg
 global:
   scrape_interval: 15s
   evaluation_interval: 15s
@@ -312,49 +318,53 @@ scrape_configs:
     static_configs:
       - targets:
         - localhost
+```
 
-Avec un conteneur docker il est necessaire de specifier --network="host"
+For installation via a docker container you can specify --network="host" to allow the container to access the local network.
 
 docker run --network="host" -d -p 9090:9090 prom/prometheus
 
-> Precision : J'ai rencontré pas mal de problèmes pour accèder à http://your-django-app.com/metrics si le site utilise HTTPS. Pour contourner ce problème je conseille deployer votre application django a la fois sur internet et à la fois sur le reseau local. Creer simplement un nouveau fichier de configuration NGINX avec le contenu suivant : 
-```
-server {
+You can access the localhost of the machine from the container via the address: 172.17.0.1
 
+> Precision: I encountered quite a few problems accessing http://your-django-app.com/metrics if the site uses HTTPS. To get around this problem I recommend deploying your django application both on the internet and both on the local network. Simply create a new NGINX configuration file with the following content:
+```conf
+server {
     listen 80;
     server_name localhost;
-
     location = /favicon.ico { access_log off; log_not_found off; }
-
-
     location /media  {
         alias  PATH_TO_YOUR_APP/static/media;
     }
-
     location /static {
         alias PATH_TO_YOUR_APP/static/static_root;
     }
-
-
     location / {
         include proxy_params;
         proxy_pass http://unix:/run/gunicorn.sock;
     }
-
 }
 
 ```
 
-Une fois votre serveur Prometheus lancé vous pouvez voir si il repond bien en accédant à http://localhost:9090/targets
+Once your Prometheus server is launched you can see if it responds well by accessing http://localhost:9090/targets
+You can now under your grafana panel add a new data source, select Prometheus. In the URL enter: http://172.17.0.1:9090
+The address 172.17.0.1 provides access to the machine's local network.
+
+## Add Prometheus data source to Grafana
+
+![image](https://github.com/JosueGauthier/grafana-borgia/assets/20337589/1a81eb5a-da01-4d79-8e29-9831bb937285)
 
 
-Vous pouvez maintenant sous votre panel grafana ajouter une nouvelle source de données, selectionner Prometheus. Dans l'url entrer : http://172.17.0.1:9090
+## Creation of the Django monitoring panel
+In order to properly visualize the retrieved metrics it is possible to use different dashboards here ready for use:
+[link](https://grafana.com/grafana/dashboards/17658-django/)
 
-L'adresse 172.17.0.1 permet d'accéder au reseau local de la machine.
+Simply download it and import it as json into grafana. 
 
-Creation du panneau de monitoring Django : 
-Afin de visualiser proprement les metrics recupérée il est possible d'utiliser differents dashboard ici un pret à l'emploi : 
-https://grafana.com/grafana/dashboards/17658-django/
+![image](https://github.com/JosueGauthier/grafana-borgia/assets/20337589/7c7c6c88-c2cf-4d9c-8058-cfe5031e2a96)
 
-Simplement telecharger le et importer le en tant que json dans grafana. 
-Selectionner en source de données Prometheus et le tour est joué.
+
+Select your data source from prometheus and that’s it.
+
+![image](https://github.com/JosueGauthier/grafana-borgia/assets/20337589/1dd09d39-26b7-42db-8480-e07bb9085f7f)
+
