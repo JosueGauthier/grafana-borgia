@@ -2,6 +2,8 @@
 
 A Grafana instance to monitor a django application
 
+This installation guide allows you to monitor a django application with Prometheus and analyze its logs with Pormtail and Loki.
+
 > This installation is suitable for any Django application. Notes are added in the case of an installation for the Borgia application
 
 
